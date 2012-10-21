@@ -1,15 +1,16 @@
 String prefix = "#12";
-const int pinaInput1 = 1;
-const int pinaInput2 = 2;
-const int pinaSelect = 0;
-const int pindUnlock = 10;
-const int pindLED = 13;
+const int pinaInput1 = 1; // potentiometer 1 on remote
+const int pinaInput2 = 2; // potentiometer 2 on remote
+const int pinaInput_Invert = 2;
+const int pinaSelect = 0; // base station mode select 1-4 rotary switch with different resistor values
+const int pindUnlock = 10; // SPST momentary ON pushbutton on remote to unlock rotary level knobs
+const int pindLED = 13; // "busy" indicator on base station
 
-const int Mode1 = 30;
-const int Mode2 = 90;
-const int Mode3 = 120;
-const int Mode4 = 150;
-const int ModePrecision = 10;
+const int Mode1 = 563;
+const int Mode2 = 698;
+const int Mode3 = 766;
+const int Mode4 = 840;
+const int ModePrecision = 2;
 
 const int Mode1_InputL1 = 1;
 const int Mode1_InputR1 = 2;
@@ -31,6 +32,8 @@ const int Mode4_InputR1 = 6;
 const int Mode4_InputL2 = 7;
 const int Mode4_InputR2 = 8;
 
+int mode;
+
 void setup()
 {
   pinMode(pindUnlock, INPUT_PULLUP);
@@ -42,36 +45,48 @@ void setup()
 
 void loop()
 {
+  //Serial.println(analogRead(pinaSelect));
+  
   if(digitalRead(pindUnlock) == LOW)
   {
-   digitalWrite(pindLED, HIGH);
-   ReadLevels();
+    digitalWrite(pindLED, HIGH);
+   
+    if(StableRead(pinaSelect, Mode1-ModePrecision, Mode1+ModePrecision, 10, 10) == true){mode = 1;}
+    if(StableRead(pinaSelect, Mode2-ModePrecision, Mode2+ModePrecision, 10, 10) == true){mode = 2;}
+    if(StableRead(pinaSelect, Mode3-ModePrecision, Mode3+ModePrecision, 10, 10) == true){mode = 3;}
+    if(StableRead(pinaSelect, Mode4-ModePrecision, Mode4+ModePrecision, 10, 10) == true){mode = 4;}
+ 
+    while(digitalRead(pindUnlock) == LOW)
+    {
+    ReadLevels();
+    delay(100);
+    }
+ 
   }
   else
   {
     digitalWrite(pindLED, LOW); 
   }
-
 }
 
 void ReadLevels()
 {
- if(StableRead(pinaSelect, Mode1-ModePrecision, Mode1+ModePrecision, 5, 5) == true)
+ if(mode == 1)
  {
     SetLevel(pinaInput1, Mode1_InputL1, Mode1_InputR1);
     SetLevel(pinaInput2, Mode1_InputL2, Mode1_InputR2);  
  }
- else if(StableRead(pinaSelect, Mode1-ModePrecision, Mode1+ModePrecision, 5, 5) == true)
+ else if(mode == 2)
  {
     SetLevel(pinaInput1, Mode2_InputL1, Mode2_InputR1);
     SetLevel(pinaInput2, Mode2_InputL2, Mode2_InputR2);    
  }
- else if(StableRead(pinaSelect, Mode1-ModePrecision, Mode1+ModePrecision, 5, 5) == true)
+ else if(mode == 3)
  {
     SetLevel(pinaInput1, Mode3_InputL1, Mode3_InputR1);
     SetLevel(pinaInput2, Mode3_InputL2, Mode3_InputR2);    
  }
- else
+ else if(mode == 4)
  {
     SetLevel(pinaInput1, Mode4_InputL1, Mode4_InputR1);
     SetLevel(pinaInput2, Mode4_InputL2, Mode4_InputR2);    
@@ -80,32 +95,43 @@ void ReadLevels()
 
 void SetLevel(int pin, int Left, int Right)
 {
-    int db = map(analogRead(pin),0, 1023, -21, 20);
-    if(db == -21)
-    {
-      //lowest setting = mute
-      Serial.println(prefix + " GAIN " + String(Left) + " I -20 A");
-      Serial.println(prefix + " MUTE " + String(Left) + " I 1");
-      Serial.println(prefix + " GAIN " + String(Right) + " I -20 A");
-      Serial.println(prefix + " MUTE " + String(Right) + " I 1");
-    }
-    else
-    {
-      //set non-mute level
-      Serial.println(prefix + " MUTE " + String(Left) + " I 0");
-      Serial.println(prefix + " GAIN " + String(Left) + " I " + String(db) + " A");
-      Serial.println(prefix + " MUTE " + String(Right) + " I 0");
-      Serial.println(prefix + " GAIN " + String(Right) + " I " + String(db) + " A");      
-    }
+  int db;
+  
+  if(pin == pinaInput_Invert)
+  {
+    db = map(analogRead(pin),1023, 0, -21, 20);    
+  }
+  else
+  {
+    db = map(analogRead(pin),0, 1023, -21, 20);
+  }
+  
+  if(db == -21)
+  {
+    //lowest setting = mute
+    Serial.println(prefix + " GAIN " + String(Left) + " I -20 A");
+    Serial.println(prefix + " MUTE " + String(Left) + " I 1");
+    Serial.println(prefix + " GAIN " + String(Right) + " I -20 A");
+    Serial.println(prefix + " MUTE " + String(Right) + " I 1");
+  }
+  else
+  {
+    //set non-mute level
+    Serial.println(prefix + " MUTE " + String(Left) + " I 0");
+    Serial.print(prefix + " GAIN " + String(Left) + " I ");
+    Serial.print(db);
+    Serial.println(" A");
+    Serial.println(prefix + " MUTE " + String(Right) + " I 0");
+    Serial.print(prefix + " GAIN " + String(Right) + " I ");
+    Serial.print(db);
+    Serial.println(" A");      
+  }
 }
 
 boolean StableRead(int aPin, int iFrom, int iTo, int nTimes, int msDelay)
 {
-  //ensures sensor reading is consistent nTimes with msDelay retest delay
-  
-  // update LCD line 2 with what read is looking for 
-  // Wait XXX<YYY<ZZZ
-  // 1234567890123456
+  //ensures reading is consistent nTimes with msDelay retest delay
+
   int pa = 0; 
   if(analogRead(aPin) <= iTo && analogRead(aPin) >= iFrom){pa++;}
   delay(msDelay);
