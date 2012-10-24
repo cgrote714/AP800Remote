@@ -1,26 +1,27 @@
 String prefix = "#12";
 const int pinaInput1 = 1; // potentiometer 1 on remote
 const int pinaInput2 = 2; // potentiometer 2 on remote
-const int pinaInput_Invert = 2;
+const int pinaInput_Invert = 2; //specify potentiometer pin to invert
 const int pinaSelect = 0; // base station mode select 1-4 rotary switch with different resistor values
 const int pindUnlock = 10; // SPST momentary ON pushbutton on remote to unlock rotary level knobs
 const int pindLED = 13; // "busy" indicator on base station
 
+const int ap_delay = 50; //ms to wait after each serial command to AP800
 const int Mode1 = 563;
 const int Mode2 = 698;
 const int Mode3 = 766;
 const int Mode4 = 840;
 const int ModePrecision = 2;
 
-const int Mode1_InputL1 = 1;
-const int Mode1_InputR1 = 2;
-const int Mode1_InputL2 = 3;
-const int Mode1_InputR2 = 4;
+const int Mode1_InputL1 = 5;
+const int Mode1_InputR1 = 6;
+const int Mode1_InputL2 = 7;
+const int Mode1_InputR2 = 8;
 
-const int Mode2_InputL1 = 5;
-const int Mode2_InputR1 = 6;
-const int Mode2_InputL2 = 7;
-const int Mode2_InputR2 = 8;
+const int Mode2_InputL1 = 1;
+const int Mode2_InputR1 = 2;
+const int Mode2_InputL2 = 3;
+const int Mode2_InputR2 = 4;
 
 const int Mode3_InputL1 = 1;
 const int Mode3_InputR1 = 2;
@@ -41,16 +42,17 @@ void setup()
   digitalWrite(pindLED, LOW);
   
   Serial.begin(9600);
+  Serial1.begin(9600); //Leonardo uses Serial1 to communicate with RX and TX header pins
 }
 
 void loop()
 {
-  //Serial.println(analogRead(pinaSelect));
-  
   if(digitalRead(pindUnlock) == LOW)
   {
     digitalWrite(pindLED, HIGH);
-   
+    mode = 0;
+    //Serial.println(analogRead(pinaSelect));
+    
     if(StableRead(pinaSelect, Mode1-ModePrecision, Mode1+ModePrecision, 10, 10) == true){mode = 1;}
     if(StableRead(pinaSelect, Mode2-ModePrecision, Mode2+ModePrecision, 10, 10) == true){mode = 2;}
     if(StableRead(pinaSelect, Mode3-ModePrecision, Mode3+ModePrecision, 10, 10) == true){mode = 3;}
@@ -59,9 +61,8 @@ void loop()
     while(digitalRead(pindUnlock) == LOW)
     {
     ReadLevels();
-    delay(100);
+    //delay(100);
     }
- 
   }
   else
   {
@@ -109,22 +110,30 @@ void SetLevel(int pin, int Left, int Right)
   if(db == -21)
   {
     //lowest setting = mute
-    Serial.println(prefix + " GAIN " + String(Left) + " I -20 A");
-    Serial.println(prefix + " MUTE " + String(Left) + " I 1");
-    Serial.println(prefix + " GAIN " + String(Right) + " I -20 A");
-    Serial.println(prefix + " MUTE " + String(Right) + " I 1");
+    Serial1.println(prefix + " GAIN " + String(Left) + " I -20 A");
+    delay(ap_delay);
+    Serial1.println(prefix + " MUTE " + String(Left) + " I 1");
+    delay(ap_delay);
+    Serial1.println(prefix + " GAIN " + String(Right) + " I -20 A");
+    delay(ap_delay);
+    Serial1.println(prefix + " MUTE " + String(Right) + " I 1");
+    delay(ap_delay);    
   }
   else
   {
     //set non-mute level
-    Serial.println(prefix + " MUTE " + String(Left) + " I 0");
-    Serial.print(prefix + " GAIN " + String(Left) + " I ");
-    Serial.print(db);
-    Serial.println(" A");
-    Serial.println(prefix + " MUTE " + String(Right) + " I 0");
-    Serial.print(prefix + " GAIN " + String(Right) + " I ");
-    Serial.print(db);
-    Serial.println(" A");      
+    Serial1.println(prefix + " MUTE " + String(Left) + " I 0");
+    delay(ap_delay);    
+    Serial1.print(prefix + " GAIN " + String(Left) + " I ");
+    Serial1.print(db);
+    Serial1.println(" A");
+    delay(ap_delay);    
+    Serial1.println(prefix + " MUTE " + String(Right) + " I 0");
+    delay(ap_delay);    
+    Serial1.print(prefix + " GAIN " + String(Right) + " I ");
+    Serial1.print(db);
+    Serial1.println(" A");
+    delay(ap_delay);    
   }
 }
 
